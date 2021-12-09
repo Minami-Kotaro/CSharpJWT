@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpsPolicy;
@@ -10,6 +12,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
 namespace JwtSample
@@ -27,11 +30,29 @@ namespace JwtSample
         public void ConfigureServices(IServiceCollection services)
         {
 
-            services.AddControllers();
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "JwtSample", Version = "v1" });
             });
+
+            //認証設定をセット
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
+                {
+                    options.TokenValidationParameters = new TokenValidationParameters()
+                    {
+
+                        ValidateIssuer = true, //トークンを作成したサーバーを検証
+                        ValidateAudience = true, //トークンの受信者が受診を許可されているか確認
+                        ValidateLifetime = true, //トークンの期限が切れておらず,署名鍵が有効であるかをチェックする
+                        ValidateIssuerSigningKey = true,//受信したトークンを署名するために使用された鍵が信頼された鍵のリストに入っていることを検証する
+                        ValidIssuer = Configuration["Jwt:Issuer"],
+                        ValidAudience = Configuration["Jwt:Issuer"],
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Configuration["JWT:Key"]))
+                    };
+                });
+
+            services.AddControllers();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -44,7 +65,9 @@ namespace JwtSample
                 app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "JwtSample v1"));
             }
 
-            app.UseHttpsRedirection();
+            app.UseAuthentication();
+
+            //app.UseHttpsRedirection();
 
             app.UseRouting();
 
